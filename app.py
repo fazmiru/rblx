@@ -2,6 +2,7 @@ import os
 import json
 from flask import Flask, request, jsonify
 import google.generativeai as genai
+import typing_extensions as typing
 
 app = Flask(__name__)
 
@@ -10,6 +11,12 @@ if API_KEY:
     genai.configure(api_key=API_KEY)
 else:
     print("Warning: GEMINI_API_KEY environment variable not found.")
+
+# Define a rigid 3D data scheme template for the model
+class Coordinate(typing.TypedDict):
+    x: int
+    y: int
+    z: int
 
 @app.route('/')
 def home():
@@ -20,19 +27,16 @@ def build_generation():
     try:
         data = request.get_json()
         if not data or 'prompt' not in data:
-            return jsonify([{"x": 0, "y": 0, "z": 0}]), 200
+            return jsonify([{"x": 0, "y": 0, "z": 0}]), 400
         
         user_prompt = data['prompt']
+        print(f"Generating coordinates for: {user_prompt}")
         
-        # Crystal clear instructions on key casing
         system_instruction = (
-            "You are an advanced 3D voxel compiler for Roblox. "
-            "The user will provide a structure name (e.g., 'house', 'castle', 'pyramid'). "
-            "You must return a large, complex, and highly detailed JSON array of coordinate objects. "
-            "Each object must have 'x', 'y', and 'z' integer offsets. "
-            "CRITICAL: Do NOT return just 2 or 3 blocks. For a 'house', you must generate a full layout "
-            "including 4 walls, a door opening, and a roof layer—spanning at least 30 to 60 distinct coordinate points. "
-            "Vary the x, y, and z numbers so they form an actual hollow room shell. "
+            "You are a 3D structural voxel builder for Roblox. "
+            "Your job is to generate a list of 3D coordinates (x, y, z blocks) to form the requested structure. "
+            "You MUST return a large number of coordinates (at least 40 to 80 blocks) to build a clear structure. "
+            "For example, if asked for a house, create a hollow square room layout with clear walls and a roof layer."
             "Strictly output raw JSON array format only. No markdown, no conversational text."
         )
 
@@ -41,20 +45,24 @@ def build_generation():
             system_instruction=system_instruction
         )
         
-        # Enforce strict application_json structure from the model
+        # Lock down the API to guarantee a long array matching our object schema
         response = model.generate_content(
-            f"Build a simple layout for: {user_prompt}",
-            generation_config={"response_mime_type": "application_json"}
+            f"Provide coordinates to build a complete: {user_prompt}",
+            generation_config={
+                "response_mime_type": "application_json",
+                "response_schema": typing.List[Coordinate]
+            }
         )
         
-        # Load string safely into list object
         layout_data = json.loads(response.text)
+        print(f"Successfully generated {len(layout_data)} blocks!")
         return jsonify(layout_data), 200
 
     except Exception as e:
         print(f"Internal error caught: {str(e)}")
-        # If anything format-wise misbehaves, send a standard 3-block line fallback
-        return jsonify([{"x": 0, "y": 0, "z": 0}, {"x": 1, "y": 0, "z": 0}, {"x": 2, "y": 0, "z": 0}]), 200
+        # Large backup configuration line so Roblox gets a noticeable build if an error pops up
+        fallback = [{"x": i, "y": 0, "z": 0} for i in range(15)]
+        return jsonify(fallback), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
