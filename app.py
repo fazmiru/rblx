@@ -2,8 +2,8 @@ import os
 import json
 from flask import Flask, request, jsonify
 import google.generativeai as genai
-import typing # Built-in module for standard structures like List
-import typing_extensions as typing_ext # Used explicitly for TypedDict schema rules
+import typing 
+import typing_extensions as typing_ext 
 
 app = Flask(__name__)
 
@@ -13,7 +13,6 @@ if API_KEY:
 else:
     print("Warning: GEMINI_API_KEY environment variable not found.")
 
-# Define the data schema using extensions
 class Coordinate(typing_ext.TypedDict):
     x: int
     y: int
@@ -34,10 +33,10 @@ def build_generation():
         print(f"Generating structure grid for: {user_prompt}")
         
         system_instruction = (
-            "You are an advanced 3D structural voxel builder for Roblox. "
-            "Your job is to generate a detailed list of 3D coordinates (x, y, z blocks) to build the requested shape. "
-            "You must return a large layout containing between 30 and 60 coordinate points. "
-            "For a house, generate walls, an entry gap, and a flat roof layer by varying x, y, and z numbers."
+            "You are a 3D building coordinate generator. "
+            "Generate a valid JSON array of coordinate objects to build the user's item. "
+            "You must provide a large, comprehensive layout using 30 to 60 distinct blocks. "
+            "For a house, generate walls (varying x and z while incrementing y) and a flat roof layer."
         )
 
         model = genai.GenerativeModel(
@@ -45,24 +44,23 @@ def build_generation():
             system_instruction=system_instruction
         )
         
-        # Enforce strict layout constraints using Python's core typing structures
+        # Keep the prompt simple and clean so the schema engine doesn't trip up
         response = model.generate_content(
-            f"Provide an array of blocks to construct a: {user_prompt}",
+            user_prompt,
             generation_config={
                 "response_mime_type": "application_json",
                 "response_schema": typing.List[Coordinate]
             }
         )
         
-        # Parse the output array directly
         layout_data = json.loads(response.text)
         return jsonify(layout_data), 200
 
     except Exception as e:
         print(f"Internal backend crash caught: {str(e)}")
-        # Noticeable stair pattern fallback to alert us if it still hits an exception
-        fallback_stairs = [{"x": i, "y": i, "z": 0} for i in range(10)]
-        return jsonify(fallback_stairs), 200
+        # A completely unique spiral backup pattern so we know if the API call itself fails
+        fallback_spiral = [{"x": i, "y": 0, "z": i} for i in range(8)]
+        return jsonify(fallback_spiral), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
