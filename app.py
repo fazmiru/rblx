@@ -1,9 +1,8 @@
 import os
 import json
+import re
 from flask import Flask, request, jsonify
 import google.generativeai as genai
-import typing 
-import typing_extensions as typing_ext 
 
 app = Flask(__name__)
 
@@ -12,11 +11,6 @@ if API_KEY:
     genai.configure(api_key=API_KEY)
 else:
     print("Warning: GEMINI_API_KEY environment variable not found.")
-
-class Coordinate(typing_ext.TypedDict):
-    x: int
-    y: int
-    z: int
 
 @app.route('/')
 def home():
@@ -30,13 +24,18 @@ def build_generation():
             return jsonify([{"x": 0, "y": 0, "z": 0}]), 400
         
         user_prompt = data['prompt']
-        print(f"Generating structure grid for: {user_prompt}")
+        # Default to 40 if Roblox fails to send the count for some reason
+        block_count = data.get('block_count', 40) 
+        print(f"Generating a {user_prompt} using exactly {block_count} blocks.")
         
         system_instruction = (
-            "You are a 3D building coordinate generator. "
-            "Generate a valid JSON array of coordinate objects to build the user's item. "
-            "You must provide a large, comprehensive layout using 30 to 60 distinct blocks. "
-            "For a house, generate walls (varying x and z while incrementing y) and a flat roof layer."
+            f"You are a 3D structural voxel placement compiler for Roblox.\n"
+            f"CRITICAL RULE: You MUST return a valid JSON array containing EXACTLY {block_count} coordinate objects. No more, no less.\n"
+            f"Each object inside the array must contain lowercase keys 'x', 'y', and 'z' with integer values.\n"
+            f"Example format layout: [{{'x':0,'y':0,'z':0}}, {{'x':1,'y':0,'z':0}}].\n"
+            f"Distribute all {block_count} blocks evenly across 3D space to construct a recognizable structural shell of a: '{user_prompt}'.\n"
+            f"For a house, create walls and a roof layer. For a ship, shape a hollow hull.\n"
+            f"Provide ONLY the raw JSON list data array. Do not include markdown wraps or conversational text."
         )
 
         model = genai.GenerativeModel(
@@ -44,23 +43,25 @@ def build_generation():
             system_instruction=system_instruction
         )
         
-        # Keep the prompt simple and clean so the schema engine doesn't trip up
         response = model.generate_content(
-            user_prompt,
-            generation_config={
-                "response_mime_type": "application_json",
-                "response_schema": typing.List[Coordinate]
-            }
+            f"Map out a blueprint array using exactly {block_count} elements for a: {user_prompt}"
         )
         
-        layout_data = json.loads(response.text)
+        raw_text = response.text.strip()
+        match = re.search(r'\[\s*\{.*\}\s*\]', raw_text, re.DOTALL)
+        if match:
+            clean_json = match.group(0)
+        else:
+            clean_json = raw_text.replace("```json", "").replace("```", "").strip()
+
+        layout_data = json.loads(clean_json)
         return jsonify(layout_data), 200
 
     except Exception as e:
-        print(f"Internal backend crash caught: {str(e)}")
-        # A completely unique spiral backup pattern so we know if the API call itself fails
-        fallback_spiral = [{"x": i, "y": 0, "z": i} for i in range(8)]
-        return jsonify(fallback_spiral), 200
+        print(f"Internal Error Caught: {str(e)}")
+        # Dynamic fallback box loop that uses whatever the block count request was
+        fallback_box = [{"x": i % 10, "y": i // 10, "z": 0} for i in range(block_count)]
+        return jsonify(fallback_box), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
