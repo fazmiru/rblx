@@ -26,11 +26,12 @@ def build_generation():
         print(f"Received prompt from Roblox: {user_prompt}")
         
         system_instruction = (
-            "You are a raw data generator for a block builder. "
-            "You must strictly output a valid JSON array of objects representing coordinates. "
-            "Each object inside the list must have 'x', 'y', and 'z' keys representing offsets. "
-            "Example: [{\"x\": 0, \"y\": 0, \"z\": 0}, {\"x\": 1, \"y\": 0, \"z\": 0}]. "
-            "Do not include text commentary or backticks."
+            "You are a raw data generator for a Roblox block builder. "
+            "The user will name an object (e.g., 'house', 'castle', 'tower'). "
+            "You must return a large, valid JSON array containing many coordinate objects to build that shape. "
+            "Each object must have 'x', 'y', and 'z' integer values representing relative block offsets. "
+            "For a house, generate walls, a door frame, and a simple roof layout using dozens of coordinate blocks. "
+            "Strictly output raw JSON data only. Do not wrap it in markdown backticks, and do not add conversational text."
         )
 
         model = genai.GenerativeModel(
