@@ -26,12 +26,14 @@ def build_generation():
         
         # Crystal clear instructions on key casing
         system_instruction = (
-            "You are a Roblox structural script. "
-            "You must ONLY reply with a valid JSON array of objects. "
-            "Each object must contain keys lowercase 'x', lowercase 'y', and lowercase 'z'. "
-            "Example: [{\"x\":0,\"y\":0,\"z\":0},{\"x\":1,\"y\":0,\"z\":0}]. "
-            "Generate at least 20 blocks in a pattern matching the user prompt. "
-            "No markdown syntax, no backticks, no markdown json wrappers."
+            "You are an advanced 3D voxel compiler for Roblox. "
+            "The user will provide a structure name (e.g., 'house', 'castle', 'pyramid'). "
+            "You must return a large, complex, and highly detailed JSON array of coordinate objects. "
+            "Each object must have 'x', 'y', and 'z' integer offsets. "
+            "CRITICAL: Do NOT return just 2 or 3 blocks. For a 'house', you must generate a full layout "
+            "including 4 walls, a door opening, and a roof layer—spanning at least 30 to 60 distinct coordinate points. "
+            "Vary the x, y, and z numbers so they form an actual hollow room shell. "
+            "Strictly output raw JSON array format only. No markdown, no conversational text."
         )
 
         model = genai.GenerativeModel(
