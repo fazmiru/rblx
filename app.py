@@ -9,7 +9,7 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 if API_KEY:
     genai.configure(api_key=API_KEY)
 else:
-    print("Warning: GEMINI_API_KEY environment variable not found.")
+    print("Error: GEMINI_API_KEY environment variable is missing on Render!")
 
 @app.route('/')
 def home():
@@ -20,18 +20,16 @@ def build_generation():
     try:
         data = request.get_json()
         if not data or 'prompt' not in data:
-            return jsonify([{"x": 0, "y": 0, "z": 0}]), 200 # Fallback safety
+            return jsonify({"error": "No prompt sent from Roblox"}), 400
         
         user_prompt = data['prompt']
-        print(f"Received prompt from Roblox: {user_prompt}")
         
         system_instruction = (
-            "You are a raw data generator for a Roblox block builder. "
-            "The user will name an object (e.g., 'house', 'castle', 'tower'). "
-            "You must return a large, valid JSON array containing many coordinate objects to build that shape. "
-            "Each object must have 'x', 'y', and 'z' integer values representing relative block offsets. "
-            "For a house, generate walls, a door frame, and a simple roof layout using dozens of coordinate blocks. "
-            "Strictly output raw JSON data only. Do not wrap it in markdown backticks, and do not add conversational text."
+            "You are a Roblox building generator. The user wants to build something. "
+            "You must return a valid JSON array of coordinate objects. "
+            "Example layout format: [{\"x\":0,\"y\":0,\"z\":0}, {\"x\":1,\"y\":0,\"z\":0}]. "
+            "Generate at least 15-20 distinct coordinates to make a recognizable shape. "
+            "Output the raw JSON array data only. No markdown, no backticks."
         )
 
         model = genai.GenerativeModel(
@@ -40,27 +38,20 @@ def build_generation():
         )
         
         response = model.generate_content(
-            user_prompt,
-            generation_config={"response_mime_type": "application_json"}
+            f"Generate structural coordinates to build a: {user_prompt}"
         )
         
-        # Safe JSON parsing
-        try:
-            cleaned_layout = json.loads(response.text)
-            # Make sure it's actually a list/array
-            if isinstance(cleaned_layout, list):
-                return jsonify(cleaned_layout), 200
-            else:
-                return jsonify([cleaned_layout]), 200
-        except Exception as json_err:
-            print(f"JSON Parsing Error: {json_err}. Raw output was: {response.text}")
-            # Fallback block configuration so Roblox gets valid data no matter what
-            return jsonify([{"x": 0, "y": 0, "z": 0}, {"x": 0, "y": 1, "z": 0}]), 200
+        # Clean up text if Gemini wrapped it in markdown code blocks
+        clean_text = response.text.replace("```json", "").replace("```", "").strip()
+        
+        # Convert string to clean JSON list data
+        coordinate_list = json.loads(clean_text)
+        return jsonify(coordinate_list), 200
 
     except Exception as e:
-        print(f"Global server error: {str(e)}")
-        # Ultimate backup array to ensure HTTP 200 success
-        return jsonify([{"x": 0, "y": 0, "z": 0}]), 200
+        print(f"Server Error: {str(e)}")
+        # Return the actual error message straight to Roblox output so we can see it!
+        return jsonify([{"x": 0, "y": 0, "z": 0}, {"error_log": str(e)}]), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
